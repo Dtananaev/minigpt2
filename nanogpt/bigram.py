@@ -76,7 +76,7 @@ def train(batch_size = 32,
             print(f"step {iter}: train loss {losses['train']:.4f}, val loss {losses['val']:.4f}")
 
         xb, yb = get_batch_func(split="train")
-        logits, loss = model(xb, yb)
+        _, loss = model(xb, yb)
 
         optimizer.zero_grad(set_to_none=True)
         loss.backward()
