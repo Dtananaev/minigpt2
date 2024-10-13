@@ -19,7 +19,6 @@ class BigramLanguageModel(nn.Module):
 
         # idx and targets are both (B,T) tensor of integers
         logits = self.token_embedding_table(idx) # (B,T,C)
-
         if targets is None:
             loss = None
         else:

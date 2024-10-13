@@ -6,7 +6,7 @@ import os
 import torch
 from functools import partial
 from nanogpt.get_tiny_shakespear import get_dataset
-from nanogpt.bigram_model import BigramLanguageModel
+from nanogpt.gpt_model import GPTLanguageModel
 
 DEVICE = 'cuda' if torch.cuda.is_available() else 'cpu'
 
@@ -47,12 +47,16 @@ def estimate_loss(model, get_batch_func, eval_iters):
     model.train()
     return out
 
-def train(batch_size = 32,
-        block_size = 8,
-        max_iters = 3000,
-        eval_interval = 300,
-        learning_rate = 1e-2,
-        eval_iters = 200):
+def train(batch_size = 64,
+        block_size =256,
+        max_iters = 5000,
+        eval_interval = 500,
+        learning_rate = 3e-4,
+        eval_iters = 200,
+        dropout=0.2, 
+        n_embed=384,
+        n_heads=6,
+        n_layers=6):
     """Train script.
     
     Args:
@@ -62,9 +66,10 @@ def train(batch_size = 32,
     torch.manual_seed(1337)
     train_data, val_data, vocab_size, encode, decode = get_dataset(split=0.9)
     get_batch_func  = partial(get_batch, data_tuple=(train_data, val_data), batch_size=batch_size, block_size=block_size)
+    model = GPTLanguageModel(vocab_size=vocab_size,block_size=block_size,  n_embd=n_embed, n_head=n_heads, n_layer=n_layers, dropout=dropout).to(DEVICE)
+    print(sum(p.numel() for p in model.parameters())/1e6, 'M parameters')
 
-    model = BigramLanguageModel(vocab_size).to(DEVICE)
-
+    
     optimizer = torch.optim.AdamW(model.parameters(), lr=learning_rate)
     # Training:  The initial loss should be -ln(1/vocab_size) 
     for iter in range(max_iters):
@@ -72,12 +77,11 @@ def train(batch_size = 32,
 
         # every once in a while evaluate the loss on train and val sets
         if iter % eval_interval == 0:
-            losses = estimate_loss(model, get_batch_func=get_batch_func, eval_iters=eval_iters)
-            print(f"step {iter}: train loss {losses['train']:.4f}, val loss {losses['val']:.4f}")
+           losses = estimate_loss(model, get_batch_func=get_batch_func, eval_iters=eval_iters)
+           print(f"step {iter}: train loss {losses['train']:.4f}, val loss {losses['val']:.4f}")
 
         xb, yb = get_batch_func(split="train")
         _, loss = model(xb, yb)
-
         optimizer.zero_grad(set_to_none=True)
         loss.backward()
         optimizer.step()
